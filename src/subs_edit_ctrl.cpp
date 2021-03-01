@@ -238,6 +238,8 @@ void SubsTextEditCtrl::SetSyntaxStyle(int id, wxFont &font, std::string const& n
 }
 
 void SubsTextEditCtrl::SetStyles() {
+	StyleClearAll();
+	SetLexer(0);
 	wxFont font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
 	font.SetEncoding(wxFONTENCODING_DEFAULT); // this solves problems with some fonts not working properly
 	wxString fontname = FontFace("Subtitle/Edit Box");
@@ -247,16 +249,27 @@ void SubsTextEditCtrl::SetStyles() {
 	auto default_background = to_wx(OPT_GET("Colour/Subtitle/Background")->GetColor());
 
 	namespace ss = agi::ass::SyntaxStyle;
+	// Default
 	SetSyntaxStyle(ss::NORMAL, font, "Normal", default_background);
+	// Comments
 	SetSyntaxStyle(ss::COMMENT, font, "Comment", default_background);
+	// Vector drawing commands
 	SetSyntaxStyle(ss::DRAWING, font, "Drawing", default_background);
+	// Curly braces for override tags
 	SetSyntaxStyle(ss::OVERRIDE, font, "Brackets", default_background);
+	// Parentheses, slashes etc. in tags
 	SetSyntaxStyle(ss::PUNCTUATION, font, "Slashes", default_background);
+	// Tag names
 	SetSyntaxStyle(ss::TAG, font, "Tags", default_background);
+	// Errors
 	SetSyntaxStyle(ss::ERROR, font, "Error", default_background);
+	// Tag values
 	SetSyntaxStyle(ss::PARAMETER, font, "Parameters", default_background);
+	// \N
 	SetSyntaxStyle(ss::LINE_BREAK, font, "Line Break", default_background);
+	// !karaoke template blocks!
 	SetSyntaxStyle(ss::KARAOKE_TEMPLATE, font, "Karaoke Template", default_background);
+	// $karaoke_variables
 	SetSyntaxStyle(ss::KARAOKE_VARIABLE, font, "Karaoke Variable", default_background);
 
 	SetCaretForeground(StyleGetForeground(ss::NORMAL));
@@ -271,41 +284,130 @@ void SubsTextEditCtrl::SetStyles() {
 	IndicatorSetUnder(1, true);
 }
 
+void SubsTextEditCtrl::SetStylesForCode() {
+	StyleClearAll();
+	SetLexer(wxSTC_LEX_LUA);
+	wxFont font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
+	font.SetEncoding(wxFONTENCODING_DEFAULT); // this solves problems with some fonts not working properly
+	wxString fontname = FontFace("Subtitle/Edit Box");
+	if (!fontname.empty()) font.SetFaceName(fontname);
+	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
+
+	auto default_background = to_wx(OPT_GET("Colour/Subtitle/Background")->GetColor());
+
+	namespace ss = agi::ass::SyntaxStyle;
+	/*
+	SetSyntaxStyle(ss::NORMAL, font, "Normal", default_background);
+	SetSyntaxStyle(ss::COMMENT, font, "Comment", default_background);
+	SetSyntaxStyle(ss::DRAWING, font, "Drawing", default_background);
+	SetSyntaxStyle(ss::OVERRIDE, font, "Brackets", default_background);
+	SetSyntaxStyle(ss::PUNCTUATION, font, "Slashes", default_background);
+	SetSyntaxStyle(ss::TAG, font, "Tags", default_background);
+	SetSyntaxStyle(ss::ERROR, font, "Error", default_background);
+	SetSyntaxStyle(ss::PARAMETER, font, "Parameters", default_background);
+	SetSyntaxStyle(ss::LINE_BREAK, font, "Line Break", default_background);
+	SetSyntaxStyle(ss::KARAOKE_TEMPLATE, font, "Karaoke Template", default_background);
+	SetSyntaxStyle(ss::KARAOKE_VARIABLE, font, "Karaoke Variable", default_background);
+	*/
+
+	// Default
+	SetSyntaxStyle(wxSTC_LUA_DEFAULT, font, "Normal", default_background);
+	// Comments
+	SetSyntaxStyle(wxSTC_LUA_COMMENT, font, "Comment", default_background);
+	SetSyntaxStyle(wxSTC_LUA_COMMENTLINE, font, "Comment", default_background);
+	SetSyntaxStyle(wxSTC_LUA_COMMENTDOC, font, "Comment", default_background);
+
+	// Number values
+	SetSyntaxStyle(wxSTC_LUA_NUMBER, font, "Parameters", default_background);
+	// Strings and such
+	SetSyntaxStyle(wxSTC_LUA_STRING, font, "Drawing", default_background);
+	SetSyntaxStyle(wxSTC_LUA_CHARACTER, font, "Drawing", default_background);
+	SetSyntaxStyle(wxSTC_LUA_LITERALSTRING, font, "Drawing", default_background);
+	SetSyntaxStyle(wxSTC_LUA_STRINGEOL, font, "Drawing", default_background);
+
+	// Variable names
+	SetSyntaxStyle(wxSTC_LUA_IDENTIFIER, font, "Normal", default_background);
+
+	// Parentheses, commas etc.
+	SetSyntaxStyle(wxSTC_LUA_OPERATOR, font, "Slashes", default_background);
+
+	// Unused in templater afaik
+	SetSyntaxStyle(wxSTC_LUA_PREPROCESSOR, font, "Normal", default_background);
+	SetSyntaxStyle(wxSTC_LUA_LABEL, font, "Normal", default_background);
+	
+	// Keywords (defined below)
+	SetSyntaxStyle(wxSTC_LUA_WORD, font, "Brackets", default_background);
+	SetSyntaxStyle(wxSTC_LUA_WORD2, font, "Tags", default_background);
+	/*
+	SetSyntaxStyle(wxSTC_LUA_WORD3, font, "Karaoke Template", default_background);
+	SetSyntaxStyle(wxSTC_LUA_WORD4, font, "Karaoke Template", default_background);
+	SetSyntaxStyle(wxSTC_LUA_WORD5, font, "Karaoke Template", default_background);
+	SetSyntaxStyle(wxSTC_LUA_WORD6, font, "Karaoke Template", default_background);
+	SetSyntaxStyle(wxSTC_LUA_WORD7, font, "Karaoke Template", default_background);
+	SetSyntaxStyle(wxSTC_LUA_WORD8, font, "Karaoke Template", default_background);
+	*/
+
+	SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while");
+	SetKeyWords(1, "assert collectgarbage dofile error _G getmetatable ipairs loadfile next pairs pcall print rawequal rawget rawset setmetatable tonumber tostring type _VERSION xpcall string table math coroutine io os debug getfenv gcinfo load loadlib loadstring require select setfenv unpack _LOADED LUA_PATH _REQUIREDNAME package rawlen package bit32 utf8 _ENV");
+
+	SetCaretForeground(StyleGetForeground(ss::NORMAL));
+	StyleSetBackground(wxSTC_STYLE_DEFAULT, default_background);
+
+	// Misspelling indicator
+	IndicatorSetStyle(0, wxSTC_INDIC_SQUIGGLE);
+	IndicatorSetForeground(0, wxColour(255, 0, 0));
+
+	// IME pending text indicator
+	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);
+	IndicatorSetUnder(1, true);
+}
+
 void SubsTextEditCtrl::UpdateStyle() {
 	AssDialogue *diag = context ? context->selectionController->GetActiveLine() : nullptr;
-	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
-
-	tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
-	agi::ass::SplitWords(line_text, tokenized_line);
-
 	cursor_pos = -1;
 	UpdateCallTip();
 
-#if wxCHECK_VERSION (3, 1, 0)
-	StartStyling(0);
-#else
-	StartStyling(0,255);
-#endif
+	if (line_text.empty()) return;
 
 	if (!OPT_GET("Subtitle/Highlight/Syntax")->GetBool()) {
 		SetStyling(line_text.size(), 0);
 		return;
 	}
 
-	if (line_text.empty()) return;
+	if (diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "code")))
+	{
+		//this->StyleResetDefault();
+		//this->StyleClearAll();
+		//this->SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while false true goto");
+		SetStylesForCode();
+	}
+	else 
+	{
+		SetStyles();
+		bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
 
-	SetIndicatorCurrent(0);
-	size_t pos = 0;
-	for (auto const& style_range : agi::ass::SyntaxHighlight(line_text, tokenized_line, spellchecker.get())) {
-		if (style_range.type == agi::ass::SyntaxStyle::SPELLING) {
-			SetStyling(style_range.length, agi::ass::SyntaxStyle::NORMAL);
-			IndicatorFillRange(pos, style_range.length);
+		tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
+		agi::ass::SplitWords(line_text, tokenized_line);
+
+#if wxCHECK_VERSION (3, 1, 0)
+		StartStyling(0);
+#else
+		StartStyling(0, 255);
+#endif
+
+		SetIndicatorCurrent(0);
+		size_t pos = 0;
+		for (auto const& style_range : agi::ass::SyntaxHighlight(line_text, tokenized_line, spellchecker.get())) {
+			if (style_range.type == agi::ass::SyntaxStyle::SPELLING) {
+				SetStyling(style_range.length, agi::ass::SyntaxStyle::NORMAL);
+				IndicatorFillRange(pos, style_range.length);
+			}
+			else {
+				SetStyling(style_range.length, style_range.type);
+				IndicatorClearRange(pos, style_range.length);
+			}
+			pos += style_range.length;
 		}
-		else {
-			SetStyling(style_range.length, style_range.type);
-			IndicatorClearRange(pos, style_range.length);
-		}
-		pos += style_range.length;
 	}
 }
 

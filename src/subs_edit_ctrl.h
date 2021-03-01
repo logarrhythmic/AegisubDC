@@ -95,6 +95,8 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl {
 	void UpdateCallTip();
 	void SetStyles();
 
+	void SetStylesForCode();
+
 	void UpdateStyle();
 
 	/// Add the thesaurus suggestions to a menu
