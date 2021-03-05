@@ -96,7 +96,7 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 #else
 	UsePopUp(false);
 #endif
-	SetStyles();
+	SetStylesForAss();
 
 	// Set hotkeys
 #if wxCHECK_VERSION (3, 1, 0)
@@ -226,6 +226,9 @@ void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 	}
 }
 
+/*
+* Sets the styling values for the specified Scintilla style ID from Aegisub options.
+*/
 void SubsTextEditCtrl::SetSyntaxStyle(int id, wxFont &font, std::string const& name, wxColor const& default_background) {
 	StyleSetFont(id, font);
 	StyleSetBold(id, OPT_GET("Colour/Subtitle/Syntax/Bold/" + name)->GetBool());
@@ -237,9 +240,42 @@ void SubsTextEditCtrl::SetSyntaxStyle(int id, wxFont &font, std::string const& n
 		StyleSetBackground(id, default_background);
 }
 
+/*
+* Sets one of the lexer modes depending on the active line.
+*/
 void SubsTextEditCtrl::SetStyles() {
+	AssDialogue* diag = context ? context->selectionController->GetActiveLine() : nullptr;
+	if (diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "code")))
+	{
+		SetStylesForLua();
+	}
+	else
+	{
+		SetStylesForAss();
+	}
+}
+
+/*
+* Switches lexer modes if necessary.
+*/
+void SubsTextEditCtrl::CheckStyles() {
+	AssDialogue* diag = context ? context->selectionController->GetActiveLine() : nullptr;
+	if (diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "code")))
+	{
+		if (GetLexer() != wxSTC_LEX_LUA) {
+			SetStylesForLua();
+		}
+	}
+	else
+	{
+		if (GetLexer() != wxSTC_LEX_CONTAINER)
+			SetStylesForAss();
+	}
+}
+
+void SubsTextEditCtrl::SetStylesForAss() {
 	StyleClearAll();
-	SetLexer(0);
+	SetLexer(wxSTC_LEX_CONTAINER);
 	wxFont font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
 	font.SetEncoding(wxFONTENCODING_DEFAULT); // this solves problems with some fonts not working properly
 	wxString fontname = FontFace("Subtitle/Edit Box");
@@ -276,15 +312,18 @@ void SubsTextEditCtrl::SetStyles() {
 	StyleSetBackground(wxSTC_STYLE_DEFAULT, default_background);
 
 	// Misspelling indicator
-	IndicatorSetStyle(0,wxSTC_INDIC_SQUIGGLE);
-	IndicatorSetForeground(0,wxColour(255,0,0));
+	IndicatorSetStyle(0, wxSTC_INDIC_SQUIGGLE);
+	IndicatorSetForeground(0, wxColour(255, 0, 0));
 
 	// IME pending text indicator
 	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);
 	IndicatorSetUnder(1, true);
 }
 
-void SubsTextEditCtrl::SetStylesForCode() {
+/*
+* Defines the Lua highlighting.
+*/
+void SubsTextEditCtrl::SetStylesForLua() {
 	StyleClearAll();
 	SetLexer(wxSTC_LEX_LUA);
 	wxFont font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
@@ -294,21 +333,6 @@ void SubsTextEditCtrl::SetStylesForCode() {
 	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
 
 	auto default_background = to_wx(OPT_GET("Colour/Subtitle/Background")->GetColor());
-
-	namespace ss = agi::ass::SyntaxStyle;
-	/*
-	SetSyntaxStyle(ss::NORMAL, font, "Normal", default_background);
-	SetSyntaxStyle(ss::COMMENT, font, "Comment", default_background);
-	SetSyntaxStyle(ss::DRAWING, font, "Drawing", default_background);
-	SetSyntaxStyle(ss::OVERRIDE, font, "Brackets", default_background);
-	SetSyntaxStyle(ss::PUNCTUATION, font, "Slashes", default_background);
-	SetSyntaxStyle(ss::TAG, font, "Tags", default_background);
-	SetSyntaxStyle(ss::ERROR, font, "Error", default_background);
-	SetSyntaxStyle(ss::PARAMETER, font, "Parameters", default_background);
-	SetSyntaxStyle(ss::LINE_BREAK, font, "Line Break", default_background);
-	SetSyntaxStyle(ss::KARAOKE_TEMPLATE, font, "Karaoke Template", default_background);
-	SetSyntaxStyle(ss::KARAOKE_VARIABLE, font, "Karaoke Variable", default_background);
-	*/
 
 	// Default
 	SetSyntaxStyle(wxSTC_LUA_DEFAULT, font, "Normal", default_background);
@@ -350,7 +374,7 @@ void SubsTextEditCtrl::SetStylesForCode() {
 	SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while");
 	SetKeyWords(1, "assert collectgarbage dofile error _G getmetatable ipairs loadfile next pairs pcall print rawequal rawget rawset setmetatable tonumber tostring type _VERSION xpcall string table math coroutine io os debug getfenv gcinfo load loadlib loadstring require select setfenv unpack _LOADED LUA_PATH _REQUIREDNAME package rawlen package bit32 utf8 _ENV");
 
-	SetCaretForeground(StyleGetForeground(ss::NORMAL));
+	SetCaretForeground(StyleGetForeground(agi::ass::SyntaxStyle::NORMAL));
 	StyleSetBackground(wxSTC_STYLE_DEFAULT, default_background);
 
 	// Misspelling indicator
@@ -366,48 +390,39 @@ void SubsTextEditCtrl::UpdateStyle() {
 	AssDialogue *diag = context ? context->selectionController->GetActiveLine() : nullptr;
 	cursor_pos = -1;
 	UpdateCallTip();
-
-	if (line_text.empty()) return;
-
+	
 	if (!OPT_GET("Subtitle/Highlight/Syntax")->GetBool()) {
 		SetStyling(line_text.size(), 0);
 		return;
 	}
 
-	if (diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "code")))
-	{
-		//this->StyleResetDefault();
-		//this->StyleClearAll();
-		//this->SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while false true goto");
-		SetStylesForCode();
-	}
-	else 
-	{
-		SetStyles();
-		bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
+	CheckStyles();
 
-		tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
-		agi::ass::SplitWords(line_text, tokenized_line);
+	if (line_text.empty()) return;
+
+	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
+
+	tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
+	agi::ass::SplitWords(line_text, tokenized_line);
 
 #if wxCHECK_VERSION (3, 1, 0)
-		StartStyling(0);
+	StartStyling(0);
 #else
-		StartStyling(0, 255);
+	StartStyling(0, 255);
 #endif
 
-		SetIndicatorCurrent(0);
-		size_t pos = 0;
-		for (auto const& style_range : agi::ass::SyntaxHighlight(line_text, tokenized_line, spellchecker.get())) {
-			if (style_range.type == agi::ass::SyntaxStyle::SPELLING) {
-				SetStyling(style_range.length, agi::ass::SyntaxStyle::NORMAL);
-				IndicatorFillRange(pos, style_range.length);
-			}
-			else {
-				SetStyling(style_range.length, style_range.type);
-				IndicatorClearRange(pos, style_range.length);
-			}
-			pos += style_range.length;
+	SetIndicatorCurrent(0);
+	size_t pos = 0;
+	for (auto const& style_range : agi::ass::SyntaxHighlight(line_text, tokenized_line, spellchecker.get())) {
+		if (style_range.type == agi::ass::SyntaxStyle::SPELLING) {
+			SetStyling(style_range.length, agi::ass::SyntaxStyle::NORMAL);
+			IndicatorFillRange(pos, style_range.length);
 		}
+		else {
+			SetStyling(style_range.length, style_range.type);
+			IndicatorClearRange(pos, style_range.length);
+		}
+		pos += style_range.length;
 	}
 }
 

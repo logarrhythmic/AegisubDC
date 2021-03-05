@@ -94,10 +94,9 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl {
 	void StyleSpellCheck();
 	void UpdateCallTip();
 	void SetStyles();
-
-	void SetStylesForCode();
-
-	void UpdateStyle();
+	void CheckStyles();
+	void SetStylesForAss();
+	void SetStylesForLua();
 
 	/// Add the thesaurus suggestions to a menu
 	void AddThesaurusEntries(wxMenu &menu);
@@ -117,6 +116,7 @@ public:
 
 	void SetTextTo(std::string const& text);
 	void Paste() override;
+	void UpdateStyle();
 
 	std::pair<int, int> GetBoundsOfWordAtPosition(int pos);
 

@@ -402,6 +402,10 @@ void SubsEditBox::UpdateFields(int type, bool repopulate_lists) {
 		actor_box->ChangeValue(to_wx(line->Actor));
 		actor_box->SetStringSelection(to_wx(line->Actor));
 	}
+
+	if (type & (AssFile::COMMIT_DIAG_TEXT) || type & (AssFile::COMMIT_DIAG_META)) {
+		edit_ctrl->UpdateStyle();
+	}
 }
 
 void SubsEditBox::PopulateList(wxComboBox *combo, boost::flyweight<std::string> AssDialogue::*field) {
