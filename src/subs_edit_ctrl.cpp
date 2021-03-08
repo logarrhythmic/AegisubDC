@@ -402,29 +402,19 @@ void SubsTextEditCtrl::SetStylesForLua() {
 }
 
 void SubsTextEditCtrl::UpdateStyle() {
-	DoUpdateStyle(false);
-}
-
-void SubsTextEditCtrl::DoUpdateStyle(bool forced) {
-	AssDialogue *diag = context ? context->selectionController->GetActiveLine() : nullptr;
+	AssDialogue* diag = context ? context->selectionController->GetActiveLine() : nullptr;
 	cursor_pos = -1;
 	UpdateCallTip();
-	
+
 	if (!OPT_GET("Subtitle/Highlight/Syntax")->GetBool()) {
 		SetStyling(line_text.size(), 0);
 		return;
 	}
 
-
-	std::string text = GetTextRaw().data();
 	if (CheckStyleChanged()) {
-		IndicatorClearRange(0, text.length());
-		ChangeLexerState(0, text.length());
+		IndicatorClearRange(0, line_text.length());
+		ChangeLexerState(0, line_text.length());
 	}
-	else {
-		if (!forced && text == line_text) return;
-	}
-	line_text = move(text);
 
 	if (line_text.empty()) return;
 	if (GetLexer() == wxSTC_LEX_LUA) return;
@@ -477,7 +467,6 @@ void SubsTextEditCtrl::UpdateCallTip() {
 	CallTipSetHighlight(new_calltip.highlight_start, new_calltip.highlight_end);
 }
 
-// TODO: needs work for code linebreaks
 void SubsTextEditCtrl::SetTextTo(std::string const& text) {
 	SetEvtHandlerEnabled(false);
 	Freeze();

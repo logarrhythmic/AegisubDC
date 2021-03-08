@@ -404,7 +404,7 @@ void SubsEditBox::UpdateFields(int type, bool repopulate_lists) {
 	}
 
 	if (type & (AssFile::COMMIT_DIAG_TEXT) || type & (AssFile::COMMIT_DIAG_META)) {
-		edit_ctrl->DoUpdateStyle(true);
+		edit_ctrl->UpdateStyle();
 		Refresh();
 	}
 }
@@ -472,7 +472,6 @@ void SubsEditBox::OnKeyDown(wxKeyEvent &event) {
 	hotkey::check("Subtitle Edit Box", c, event);
 }
 
-// TODO: needs work for code linebreaks
 void SubsEditBox::OnChange(wxStyledTextEvent &event) {
 	if (line && edit_ctrl->GetTextRaw().data() != ConvertLineBreaksForDisplay(line->Text.get())) {
 		if (event.GetModificationType() & wxSTC_STARTACTION)
@@ -510,7 +509,6 @@ void SubsEditBox::SetSelectedRows(T AssDialogueBase::*field, wxString const& val
 	SetSelectedRows([&](AssDialogue *d) { d->*field = conv_value; }, desc, type, amend);
 }
 
-// TODO: needs work for code linebreaks
 void SubsEditBox::CommitText(wxString const& desc) {
 	wxCharBuffer data(ConvertLineBreaksForSave(edit_ctrl->GetTextRaw().data()).c_str());
 
@@ -656,13 +654,13 @@ void SubsEditBox::OnEffectChange(wxCommandEvent &evt) {
 	bool amend = evt.GetEventType() == wxEVT_TEXT;
 	SetSelectedRows(AssDialogue_Effect, new_value(effect_box, evt), _("effect change"), AssFile::COMMIT_DIAG_META, amend);
 	PopulateList(effect_box, AssDialogue_Effect);
-	edit_ctrl->DoUpdateStyle(true);
+	edit_ctrl->UpdateStyle();
 	Refresh();
 }
 
 void SubsEditBox::OnCommentChange(wxCommandEvent &evt) {
 	SetSelectedRows(&AssDialogue::Comment, !!evt.GetInt(), _("comment change"), AssFile::COMMIT_DIAG_META);
-	edit_ctrl->DoUpdateStyle(true);
+	edit_ctrl->UpdateStyle();
 	Refresh();
 }
 
