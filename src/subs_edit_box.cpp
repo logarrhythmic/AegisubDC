@@ -381,7 +381,7 @@ void SubsEditBox::UpdateFields(int type, bool repopulate_lists) {
 	}
 
 	if (type & AssFile::COMMIT_DIAG_TEXT) {
-		edit_ctrl->SetTextTo(line->Text);
+		edit_ctrl->SetTextTo(ConvertLineBreaksForDisplay(line->Text));
 		UpdateCharacterCount(line->Text);
 	}
 
@@ -474,7 +474,7 @@ void SubsEditBox::OnKeyDown(wxKeyEvent &event) {
 
 // TODO: needs work for code linebreaks
 void SubsEditBox::OnChange(wxStyledTextEvent &event) {
-	if (line && edit_ctrl->GetTextRaw().data() != line->Text.get()) {
+	if (line && edit_ctrl->GetTextRaw().data() != ConvertLineBreaksForDisplay(line->Text.get())) {
 		if (event.GetModificationType() & wxSTC_STARTACTION)
 			commit_id = -1;
 		CommitText(_("modify text"));
@@ -512,7 +512,8 @@ void SubsEditBox::SetSelectedRows(T AssDialogueBase::*field, wxString const& val
 
 // TODO: needs work for code linebreaks
 void SubsEditBox::CommitText(wxString const& desc) {
-	auto data = edit_ctrl->GetTextRaw();
+	wxCharBuffer data(ConvertLineBreaksForSave(edit_ctrl->GetTextRaw().data()).c_str());
+
 	SetSelectedRows(&AssDialogue::Text, boost::flyweight<std::string>(data.data(), data.length()), desc, AssFile::COMMIT_DIAG_TEXT, true);
 }
 
@@ -683,4 +684,26 @@ void SubsEditBox::UpdateCharacterCount(std::string const& text) {
 		char_count->SetBackgroundColour(to_wx(OPT_GET("Colour/Subtitle/Syntax/Background/Error")->GetColor()));
 	else
 		char_count->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+}
+
+std::string SubsEditBox::LineBreakAss{'-', '-', '[', '[', 31, '-' , '-' , ']' , ']'};
+
+std::string SubsEditBox::ConvertLineBreaksForSave(std::string const& str) {
+	std::string output(str);
+	size_t pos = output.find("\n");
+	while (pos != std::string::npos) {
+		output.replace(pos, 1, LineBreakAss);
+		pos = output.find("\n");
+	}
+	return output;
+}
+
+std::string SubsEditBox::ConvertLineBreaksForDisplay(std::string const& str) {
+	std::string output(str);
+	size_t pos = output.find(LineBreakAss);
+	while (pos != std::string::npos) {
+		output.replace(pos, LineBreakAss.length(), "\n");
+		pos = output.find(LineBreakAss);
+	}
+	return output;
 }

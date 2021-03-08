@@ -217,11 +217,22 @@ void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 		auto sel_start = GetSelectionStart(), sel_end = GetSelectionEnd();
 		wxCharBuffer old = GetTextRaw();
 		std::string data(old.data(), sel_start);
-		data.append("\\N");
+
+		int jump;
+		if (GetLexer() != wxSTC_LEX_LUA) {
+			data.append("\\N");
+			jump = 2;
+		}
+		else {
+			data.append("\n");
+			jump = 1;
+		}
+
 		data.append(old.data() + sel_end, old.length() - sel_end);
 		SetTextRaw(data.c_str());
 
-		SetSelection(sel_start + 2, sel_start + 2);
+		SetSelection(sel_start + jump, sel_start + jump);
+
 		event.Skip(false);
 	}
 }
