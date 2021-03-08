@@ -210,9 +210,32 @@ void SubsTextEditCtrl::OnLoseFocus(wxFocusEvent &event) {
 void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 	event.Skip();
 
-	// Workaround for wxSTC eating tabs.
-	if (event.GetKeyCode() == WXK_TAB)
-		Navigate(event.ShiftDown() ? wxNavigationKeyEvent::IsBackward : wxNavigationKeyEvent::IsForward);
+	if (event.GetKeyCode() == WXK_TAB) {
+		if (GetLexer() != wxSTC_LEX_LUA)
+			HandleAsNavigationKey(event); // Workaround for wxSTC eating tabs.
+		else {
+			// Multi-line indentation.
+			int start = GetSelectionStart();
+			int end = GetSelectionEnd();
+			if (!(event.GetModifiers() & wxMOD_SHIFT) && start == end && start > GetLineIndentPosition(LineFromPosition(start))) {
+				InsertText(start, std::string(GetIndent(), ' '));
+				SetSelection(start + GetIndent(), start + GetIndent());
+			}
+			else {
+				for (int i = LineFromPosition(start); i <= LineFromPosition(end); i++) {
+					if (event.GetModifiers() & wxMOD_SHIFT) {
+						SetLineIndentation(i, GetLineIndentation(i) - GetIndent());
+					}
+					else {
+						SetLineIndentation(i, GetLineIndentation(i) + GetIndent());
+
+						if (start == end)
+							SetSelection(start + GetIndent(), start + GetIndent());
+					}
+				}
+			}
+		}
+	}
 	else if (event.GetKeyCode() == WXK_RETURN && event.GetModifiers() == wxMOD_SHIFT) {
 		auto sel_start = GetSelectionStart(), sel_end = GetSelectionEnd();
 		wxCharBuffer old = GetTextRaw();
@@ -337,6 +360,7 @@ void SubsTextEditCtrl::SetStylesForAss() {
 
 /*
 * Defines the Lua highlighting.
+* TODO: brace highlighting for keywords that interact with each other in that way
 */
 void SubsTextEditCtrl::SetStylesForLua() {
 	StyleClearAll();
@@ -377,8 +401,8 @@ void SubsTextEditCtrl::SetStylesForLua() {
 	// Keywords (as defined)
 	SetSyntaxStyle(wxSTC_LUA_WORD, font, "Brackets", default_background);
 	SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while");
-	//SetSyntaxStyle(wxSTC_LUA_WORD2, font, "Tags", default_background);
-	//SetKeyWords(1, "assert collectgarbage dofile error _G getmetatable ipairs loadfile next pairs pcall print rawequal rawget rawset setmetatable tonumber tostring type _VERSION xpcall string table math coroutine io os debug getfenv gcinfo load loadlib loadstring require select setfenv unpack _LOADED LUA_PATH _REQUIREDNAME package rawlen package bit32 utf8 _ENV");
+	SetSyntaxStyle(wxSTC_LUA_WORD2, font, "Tags", default_background);
+	SetKeyWords(1, "assert collectgarbage dofile error _G getmetatable ipairs loadfile next pairs pcall print rawequal rawget rawset setmetatable tonumber tostring type _VERSION xpcall string table math coroutine io os debug getfenv gcinfo load loadlib loadstring require select setfenv unpack _LOADED LUA_PATH _REQUIREDNAME package rawlen package bit32 utf8 _ENV");
 
 	/*
 	SetSyntaxStyle(wxSTC_LUA_WORD3, font, "Karaoke Template", default_background);
@@ -399,6 +423,10 @@ void SubsTextEditCtrl::SetStylesForLua() {
 	// IME pending text indicator
 	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);
 	IndicatorSetUnder(1, true);
+
+	SetIndent(2);
+	SetTabWidth(2);
+	SetUseTabs(false);
 }
 
 void SubsTextEditCtrl::UpdateStyle() {
@@ -417,7 +445,7 @@ void SubsTextEditCtrl::UpdateStyle() {
 	}
 
 	if (line_text.empty()) return;
-	if (GetLexer() == wxSTC_LEX_LUA) return;
+	if (GetLexer() == wxSTC_LEX_LUA) return; // Todo: perform some special stuff, like brace matching and error highlights if someone actually uses --[=[these comments]=]
 
 	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
 	tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);

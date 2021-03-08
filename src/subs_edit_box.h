@@ -106,6 +106,7 @@ class SubsEditBox final : public wxPanel {
 	static std::string LineBreakAss;
 	static std::string ConvertLineBreaksForSave(std::string const& str);
 	static std::string ConvertLineBreaksForDisplay(std::string const& str);
+	void CheckLineBreaks();
 
 	void SetControlsState(bool state);
 	/// @brief Update times of selected lines

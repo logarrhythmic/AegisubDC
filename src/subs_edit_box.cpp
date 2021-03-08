@@ -69,6 +69,9 @@
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
+
 namespace {
 
 /// Work around wxGTK's fondness for generating events from ChangeValue
@@ -405,7 +408,6 @@ void SubsEditBox::UpdateFields(int type, bool repopulate_lists) {
 
 	if (type & (AssFile::COMMIT_DIAG_TEXT) || type & (AssFile::COMMIT_DIAG_META)) {
 		edit_ctrl->UpdateStyle();
-		Refresh();
 	}
 }
 
@@ -655,13 +657,13 @@ void SubsEditBox::OnEffectChange(wxCommandEvent &evt) {
 	SetSelectedRows(AssDialogue_Effect, new_value(effect_box, evt), _("effect change"), AssFile::COMMIT_DIAG_META, amend);
 	PopulateList(effect_box, AssDialogue_Effect);
 	edit_ctrl->UpdateStyle();
-	Refresh();
+	CheckLineBreaks();
 }
 
 void SubsEditBox::OnCommentChange(wxCommandEvent &evt) {
 	SetSelectedRows(&AssDialogue::Comment, !!evt.GetInt(), _("comment change"), AssFile::COMMIT_DIAG_META);
 	edit_ctrl->UpdateStyle();
-	Refresh();
+	CheckLineBreaks();
 }
 
 void SubsEditBox::CallCommand(const char *cmd_name) {
@@ -684,24 +686,31 @@ void SubsEditBox::UpdateCharacterCount(std::string const& text) {
 		char_count->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 }
 
-std::string SubsEditBox::LineBreakAss{'-', '-', '[', '[', 31, '-' , '-' , ']' , ']'};
+std::string SubsEditBox::LineBreakAss{'-', '-', '[', '=', '[', 31, ']' , '=', ']'};
 
 std::string SubsEditBox::ConvertLineBreaksForSave(std::string const& str) {
 	std::string output(str);
-	size_t pos = output.find("\n");
-	while (pos != std::string::npos) {
-		output.replace(pos, 1, LineBreakAss);
-		pos = output.find("\n");
-	}
+	boost::replace_all(output, "\n", LineBreakAss);
 	return output;
 }
 
 std::string SubsEditBox::ConvertLineBreaksForDisplay(std::string const& str) {
 	std::string output(str);
-	size_t pos = output.find(LineBreakAss);
-	while (pos != std::string::npos) {
-		output.replace(pos, LineBreakAss.length(), "\n");
-		pos = output.find(LineBreakAss);
-	}
+	boost::replace_all(output, LineBreakAss, "\n");
 	return output;
+}
+
+// Removes linebreak sequences from non-code lines.
+void SubsEditBox::CheckLineBreaks() {
+	if (line && line->Comment && (boost::istarts_with(line->Effect.get(), "code")))
+		return;
+	else if (line) {
+		std::string editor_text(edit_ctrl->GetTextRaw());
+		boost::replace_all(editor_text, "\n", "");
+		edit_ctrl->SetTextTo(editor_text);
+
+		std::string line_text(line->Text.get());
+		boost::replace_all(line_text, LineBreakAss, "");
+		line->Text = line_text;
+	}
 }
