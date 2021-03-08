@@ -271,6 +271,7 @@ void DialogTranslation::UpdateDisplay() {
 	translated_text->SetFocus();
 }
 
+// TODO: needs work for code linebreaks
 void DialogTranslation::Commit(bool next) {
 	std::string new_value = translated_text->GetTextRaw().data();
 	boost::replace_all(new_value, "\r\n", "\\N");

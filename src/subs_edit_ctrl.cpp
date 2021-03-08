@@ -258,19 +258,23 @@ void SubsTextEditCtrl::SetStyles() {
 /*
 * Switches lexer modes if necessary.
 */
-void SubsTextEditCtrl::CheckStyles() {
+bool SubsTextEditCtrl::CheckStyleChanged() {
 	AssDialogue* diag = context ? context->selectionController->GetActiveLine() : nullptr;
 	if (diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "code")))
 	{
 		if (GetLexer() != wxSTC_LEX_LUA) {
 			SetStylesForLua();
+			return true;
 		}
 	}
 	else
 	{
-		if (GetLexer() != wxSTC_LEX_CONTAINER)
+		if (GetLexer() != wxSTC_LEX_CONTAINER) {
 			SetStylesForAss();
+			return true;
+		}
 	}
+	return false;
 }
 
 void SubsTextEditCtrl::SetStylesForAss() {
@@ -293,7 +297,7 @@ void SubsTextEditCtrl::SetStylesForAss() {
 	SetSyntaxStyle(ss::DRAWING, font, "Drawing", default_background);
 	// Curly braces for override tags
 	SetSyntaxStyle(ss::OVERRIDE, font, "Brackets", default_background);
-	// Parentheses, slashes etc. in tags
+	// Parentheses, backslashes etc. in tags
 	SetSyntaxStyle(ss::PUNCTUATION, font, "Slashes", default_background);
 	// Tag names
 	SetSyntaxStyle(ss::TAG, font, "Tags", default_background);
@@ -334,8 +338,8 @@ void SubsTextEditCtrl::SetStylesForLua() {
 
 	auto default_background = to_wx(OPT_GET("Colour/Subtitle/Background")->GetColor());
 
-	// Default
-	SetSyntaxStyle(wxSTC_LUA_DEFAULT, font, "Normal", default_background);
+	// Default: only whitespace, the caret, and some special characters (backslash and question mark), so use Slashes
+	SetSyntaxStyle(wxSTC_LUA_DEFAULT, font, "Slashes", default_background);
 	// Comments
 	SetSyntaxStyle(wxSTC_LUA_COMMENT, font, "Comment", default_background);
 	SetSyntaxStyle(wxSTC_LUA_COMMENTLINE, font, "Comment", default_background);
@@ -343,11 +347,11 @@ void SubsTextEditCtrl::SetStylesForLua() {
 
 	// Number values
 	SetSyntaxStyle(wxSTC_LUA_NUMBER, font, "Parameters", default_background);
-	// Strings and such
-	SetSyntaxStyle(wxSTC_LUA_STRING, font, "Drawing", default_background);
-	SetSyntaxStyle(wxSTC_LUA_CHARACTER, font, "Drawing", default_background);
-	SetSyntaxStyle(wxSTC_LUA_LITERALSTRING, font, "Drawing", default_background);
-	SetSyntaxStyle(wxSTC_LUA_STRINGEOL, font, "Drawing", default_background);
+	// Strings and such (consider an additional settings entry for these)
+	SetSyntaxStyle(wxSTC_LUA_STRING, font, "Parameters", default_background);
+	SetSyntaxStyle(wxSTC_LUA_CHARACTER, font, "Parameters", default_background);
+	SetSyntaxStyle(wxSTC_LUA_LITERALSTRING, font, "Parameters", default_background);
+	SetSyntaxStyle(wxSTC_LUA_STRINGEOL, font, "Parameters", default_background);
 
 	// Variable names
 	SetSyntaxStyle(wxSTC_LUA_IDENTIFIER, font, "Normal", default_background);
@@ -355,13 +359,16 @@ void SubsTextEditCtrl::SetStylesForLua() {
 	// Parentheses, commas etc.
 	SetSyntaxStyle(wxSTC_LUA_OPERATOR, font, "Slashes", default_background);
 
-	// Unused in templater afaik
-	SetSyntaxStyle(wxSTC_LUA_PREPROCESSOR, font, "Normal", default_background);
-	SetSyntaxStyle(wxSTC_LUA_LABEL, font, "Normal", default_background);
+	// Probably unused in templater
+	SetSyntaxStyle(wxSTC_LUA_PREPROCESSOR, font, "Tags", default_background);
+	SetSyntaxStyle(wxSTC_LUA_LABEL, font, "Brackets", default_background);
 	
-	// Keywords (defined below)
+	// Keywords (as defined)
 	SetSyntaxStyle(wxSTC_LUA_WORD, font, "Brackets", default_background);
-	SetSyntaxStyle(wxSTC_LUA_WORD2, font, "Tags", default_background);
+	SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while");
+	//SetSyntaxStyle(wxSTC_LUA_WORD2, font, "Tags", default_background);
+	//SetKeyWords(1, "assert collectgarbage dofile error _G getmetatable ipairs loadfile next pairs pcall print rawequal rawget rawset setmetatable tonumber tostring type _VERSION xpcall string table math coroutine io os debug getfenv gcinfo load loadlib loadstring require select setfenv unpack _LOADED LUA_PATH _REQUIREDNAME package rawlen package bit32 utf8 _ENV");
+
 	/*
 	SetSyntaxStyle(wxSTC_LUA_WORD3, font, "Karaoke Template", default_background);
 	SetSyntaxStyle(wxSTC_LUA_WORD4, font, "Karaoke Template", default_background);
@@ -370,9 +377,6 @@ void SubsTextEditCtrl::SetStylesForLua() {
 	SetSyntaxStyle(wxSTC_LUA_WORD7, font, "Karaoke Template", default_background);
 	SetSyntaxStyle(wxSTC_LUA_WORD8, font, "Karaoke Template", default_background);
 	*/
-
-	SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while");
-	SetKeyWords(1, "assert collectgarbage dofile error _G getmetatable ipairs loadfile next pairs pcall print rawequal rawget rawset setmetatable tonumber tostring type _VERSION xpcall string table math coroutine io os debug getfenv gcinfo load loadlib loadstring require select setfenv unpack _LOADED LUA_PATH _REQUIREDNAME package rawlen package bit32 utf8 _ENV");
 
 	SetCaretForeground(StyleGetForeground(agi::ass::SyntaxStyle::NORMAL));
 	StyleSetBackground(wxSTC_STYLE_DEFAULT, default_background);
@@ -387,6 +391,10 @@ void SubsTextEditCtrl::SetStylesForLua() {
 }
 
 void SubsTextEditCtrl::UpdateStyle() {
+	DoUpdateStyle(false);
+}
+
+void SubsTextEditCtrl::DoUpdateStyle(bool forced) {
 	AssDialogue *diag = context ? context->selectionController->GetActiveLine() : nullptr;
 	cursor_pos = -1;
 	UpdateCallTip();
@@ -396,12 +404,21 @@ void SubsTextEditCtrl::UpdateStyle() {
 		return;
 	}
 
-	CheckStyles();
+
+	std::string text = GetTextRaw().data();
+	if (CheckStyleChanged()) {
+		IndicatorClearRange(0, text.length());
+		ChangeLexerState(0, text.length());
+	}
+	else {
+		if (!forced && text == line_text) return;
+	}
+	line_text = move(text);
 
 	if (line_text.empty()) return;
+	if (GetLexer() == wxSTC_LEX_LUA) return;
 
 	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
-
 	tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
 	agi::ass::SplitWords(line_text, tokenized_line);
 
@@ -449,6 +466,7 @@ void SubsTextEditCtrl::UpdateCallTip() {
 	CallTipSetHighlight(new_calltip.highlight_start, new_calltip.highlight_end);
 }
 
+// TODO: needs work for code linebreaks
 void SubsTextEditCtrl::SetTextTo(std::string const& text) {
 	SetEvtHandlerEnabled(false);
 	Freeze();
