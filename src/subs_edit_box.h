@@ -103,11 +103,6 @@ class SubsEditBox final : public wxPanel {
 	wxSizer *middle_left_sizer;
 	wxSizer *bottom_sizer;
 
-	static std::string LineBreakAss;
-	static std::string ConvertLineBreaksForSave(std::string const& str);
-	static std::string ConvertLineBreaksForDisplay(std::string const& str);
-	void CheckLineBreaks();
-
 	void SetControlsState(bool state);
 	/// @brief Update times of selected lines
 	/// @param field Field which changed

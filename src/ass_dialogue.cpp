@@ -42,6 +42,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
 #include <boost/spirit/include/karma_generate.hpp>
@@ -143,6 +144,8 @@ void AssDialogue::Parse(std::string const& raw) {
 		}
 	}
 
+	boost::replace_all(text, "\x1f", "\n");
+
 	Text = text;
 }
 
@@ -191,6 +194,8 @@ std::string AssDialogue::GetEntryData() const {
 	for (auto c : Text.get()) {
 		if (c != '\n' && c != '\r')
 			str += c;
+		else if (c == '\n')
+			str += 31; // control character 31, unit separator
 	}
 
 	return str;

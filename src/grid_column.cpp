@@ -27,6 +27,8 @@
 
 #include <wx/dc.h>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 void WidthHelper::Age() {
 	for (auto it = begin(widths), e = end(widths); it != e; ) {
 		if (it->second.age == age)
@@ -368,29 +370,46 @@ public:
 	wxString Value(const AssDialogue *d, const agi::Context *) const override {
 		wxString str;
 		int mode = override_mode->GetInt();
-
-		// Show overrides
-		if (mode == 0)
-			str = to_wx(d->Text);
-		// Hidden overrides
+		if (d->Comment && (boost::istarts_with(d->Effect.get(), "code"))) 
+			str = to_wx(d->Text); 
 		else {
-			auto const& text = d->Text.get();
-			str.reserve(text.size());
-			size_t start = 0, pos;
-			while ((pos = text.find('{', start)) != std::string::npos) {
-				str += to_wx(text.substr(start, pos - start));
-				if (mode == 1)
-					str += replace_char;
-				start = text.find('}', pos);
-				if (start != std::string::npos) ++start;
+			// Show overrides
+			if (mode == 0)
+				str = to_wx(d->Text);
+			// Hidden overrides
+			else {
+				auto const& text = d->Text.get();
+				str.reserve(text.size());
+				size_t start = 0, pos;
+				while ((pos = text.find('{', start)) != std::string::npos) {
+					str += to_wx(text.substr(start, pos - start));
+					if (mode == 1)
+						str += replace_char;
+					start = text.find('}', pos);
+					if (start != std::string::npos) ++start;
+				}
+				if (start != std::string::npos)
+					str += to_wx(text.substr(start));
 			}
-			if (start != std::string::npos)
-				str += to_wx(text.substr(start));
+		}
+
+		// Linebreak handling
+		switch (mode) {
+		case 0:
+			str.Replace("\n", "\\n");
+			break;
+		case 1:
+			str.Replace("\n", replace_char);
+			break;
+		default:
+			str.Replace("\n", " ");
+			break;
 		}
 
 		// Cap length and set text
 		if (str.size() > 512)
 			str = str.Left(512) + "...";
+
 		return str;
 	}
 

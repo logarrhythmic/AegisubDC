@@ -384,7 +384,7 @@ void SubsEditBox::UpdateFields(int type, bool repopulate_lists) {
 	}
 
 	if (type & AssFile::COMMIT_DIAG_TEXT) {
-		edit_ctrl->SetTextTo(ConvertLineBreaksForDisplay(line->Text));
+		edit_ctrl->SetTextTo(line->Text);
 		UpdateCharacterCount(line->Text);
 	}
 
@@ -475,7 +475,7 @@ void SubsEditBox::OnKeyDown(wxKeyEvent &event) {
 }
 
 void SubsEditBox::OnChange(wxStyledTextEvent &event) {
-	if (line && edit_ctrl->GetTextRaw().data() != ConvertLineBreaksForDisplay(line->Text.get())) {
+	if (line && edit_ctrl->GetTextRaw().data() != line->Text.get()) {
 		if (event.GetModificationType() & wxSTC_STARTACTION)
 			commit_id = -1;
 		CommitText(_("modify text"));
@@ -512,7 +512,7 @@ void SubsEditBox::SetSelectedRows(T AssDialogueBase::*field, wxString const& val
 }
 
 void SubsEditBox::CommitText(wxString const& desc) {
-	wxCharBuffer data(ConvertLineBreaksForSave(edit_ctrl->GetTextRaw().data()).c_str());
+	wxCharBuffer data = edit_ctrl->GetTextRaw();
 
 	SetSelectedRows(&AssDialogue::Text, boost::flyweight<std::string>(data.data(), data.length()), desc, AssFile::COMMIT_DIAG_TEXT, true);
 }
@@ -657,13 +657,11 @@ void SubsEditBox::OnEffectChange(wxCommandEvent &evt) {
 	SetSelectedRows(AssDialogue_Effect, new_value(effect_box, evt), _("effect change"), AssFile::COMMIT_DIAG_META, amend);
 	PopulateList(effect_box, AssDialogue_Effect);
 	edit_ctrl->UpdateStyle();
-	CheckLineBreaks();
 }
 
 void SubsEditBox::OnCommentChange(wxCommandEvent &evt) {
 	SetSelectedRows(&AssDialogue::Comment, !!evt.GetInt(), _("comment change"), AssFile::COMMIT_DIAG_META);
 	edit_ctrl->UpdateStyle();
-	CheckLineBreaks();
 }
 
 void SubsEditBox::CallCommand(const char *cmd_name) {
@@ -684,33 +682,4 @@ void SubsEditBox::UpdateCharacterCount(std::string const& text) {
 		char_count->SetBackgroundColour(to_wx(OPT_GET("Colour/Subtitle/Syntax/Background/Error")->GetColor()));
 	else
 		char_count->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
-}
-
-std::string SubsEditBox::LineBreakAss{'-', '-', '[', '=', '[', 31, ']' , '=', ']'};
-
-std::string SubsEditBox::ConvertLineBreaksForSave(std::string const& str) {
-	std::string output(str);
-	boost::replace_all(output, "\n", LineBreakAss);
-	return output;
-}
-
-std::string SubsEditBox::ConvertLineBreaksForDisplay(std::string const& str) {
-	std::string output(str);
-	boost::replace_all(output, LineBreakAss, "\n");
-	return output;
-}
-
-// Removes linebreak sequences from non-code lines.
-void SubsEditBox::CheckLineBreaks() {
-	if (line && line->Comment && (boost::istarts_with(line->Effect.get(), "code")))
-		return;
-	else if (line) {
-		std::string editor_text(edit_ctrl->GetTextRaw());
-		boost::replace_all(editor_text, "\n", "");
-		edit_ctrl->SetTextTo(editor_text);
-
-		std::string line_text(line->Text.get());
-		boost::replace_all(line_text, LineBreakAss, "");
-		line->Text = line_text;
-	}
 }
