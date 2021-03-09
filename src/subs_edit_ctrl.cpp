@@ -443,8 +443,11 @@ void SubsTextEditCtrl::UpdateStyle() {
 		IndicatorClearRange(0, line_text.length());
 		ChangeLexerState(0, line_text.length());
 	}
+	else
+		if (line_text.empty()) return;
 
-	if (line_text.empty()) return;
+	line_text = GetTextRaw().data();
+
 	if (GetLexer() == wxSTC_LEX_LUA) return; // Todo: perform some special stuff, like brace matching and error highlights if someone actually uses --[=[these comments]=]
 
 	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
