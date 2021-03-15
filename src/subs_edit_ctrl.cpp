@@ -90,7 +90,7 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 {
 	// Set properties
 	SetWrapMode(wxSTC_WRAP_WORD);
-	SetMarginWidth(1,0);
+	SetMarginWidth(1, 0);
 #if wxCHECK_VERSION (3, 1, 0)
 	UsePopUp(wxSTC_POPUP_NEVER);
 #else
@@ -356,6 +356,8 @@ void SubsTextEditCtrl::SetStylesForAss() {
 	// IME pending text indicator
 	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);
 	IndicatorSetUnder(1, true);
+
+	SetMarginWidth(2, 0);
 }
 
 /*
@@ -394,22 +396,33 @@ void SubsTextEditCtrl::SetStylesForLua() {
 	// Parentheses, commas etc.
 	SetSyntaxStyle(wxSTC_LUA_OPERATOR, font, "Slashes", default_background);
 
+	// Goto labels
+	SetSyntaxStyle(wxSTC_LUA_LABEL, font, "Brackets", default_background);
+
 	// Probably unused in templater
 	SetSyntaxStyle(wxSTC_LUA_PREPROCESSOR, font, "Tags", default_background);
-	SetSyntaxStyle(wxSTC_LUA_LABEL, font, "Brackets", default_background);
 	
 	// Keywords (as defined)
+	// Keywords
 	SetSyntaxStyle(wxSTC_LUA_WORD, font, "Brackets", default_background);
-	SetKeyWords(0, "and break do else elseif end for function if in local nil not or repeat return then until while");
+	SetKeyWords(0, "and break do else elseif end false for function goto if in local nil not or repeat return then true until while");
+	// Basic Functions (in the templater environment, these are behind _G by default)
 	SetSyntaxStyle(wxSTC_LUA_WORD2, font, "Tags", default_background);
-	SetKeyWords(1, "assert collectgarbage dofile error _G getmetatable ipairs loadfile next pairs pcall print rawequal rawget rawset setmetatable tonumber tostring type _VERSION xpcall string table math coroutine io os debug getfenv gcinfo load loadlib loadstring require select setfenv unpack _LOADED LUA_PATH _REQUIREDNAME package rawlen package bit32 utf8 _ENV");
-
+	SetKeyWords(1, "_G _G._VERSION _G.assert _G.collectgarbage _G.dofile _G.error _G.getfenv _G.getmetatable _G.ipairs _G.load _G.loadfile _G.loadstring _G.module _G.next _G.pairs _G.pcall _G.print _G.rawequal _G.rawget _G.rawset _G.require _G.select _G.setfenv _G.setmetatable _G.tonumber _G.tostring _G.type _G.unpack _G.xpcall");
+	
+	// not included: string table math coroutine io os debug package
 	/*
+	// String Manipulation
 	SetSyntaxStyle(wxSTC_LUA_WORD3, font, "Karaoke Template", default_background);
+	// Math functions
 	SetSyntaxStyle(wxSTC_LUA_WORD4, font, "Karaoke Template", default_background);
+	// I / O Facilities
 	SetSyntaxStyle(wxSTC_LUA_WORD5, font, "Karaoke Template", default_background);
+	// System Facilities
 	SetSyntaxStyle(wxSTC_LUA_WORD6, font, "Karaoke Template", default_background);
+	// Free 1?
 	SetSyntaxStyle(wxSTC_LUA_WORD7, font, "Karaoke Template", default_background);
+	// Free 2?
 	SetSyntaxStyle(wxSTC_LUA_WORD8, font, "Karaoke Template", default_background);
 	*/
 
@@ -427,6 +440,48 @@ void SubsTextEditCtrl::SetStylesForLua() {
 	SetIndent(2);
 	SetTabWidth(2);
 	SetUseTabs(false);
+
+	wxColor markerLines = to_wx(OPT_GET("Colour/Subtitle/Syntax/Normal")->GetColor());
+	wxColor markerFill = to_wx(OPT_GET("Colour/Subtitle/Syntax/Brackets")->GetColor());
+
+	wxColor marginBG = default_background.ChangeLightness(default_background.GetLuminance() > 0.5 ? 90 : 110);
+	SetAutomaticFold(wxSTC_AUTOMATICFOLD_SHOW | wxSTC_AUTOMATICFOLD_CLICK | wxSTC_AUTOMATICFOLD_CHANGE);
+	SetMarginType(2, wxSTC_MARGIN_SYMBOL);
+	SetFoldMarginColour(true, marginBG);
+	SetFoldMarginHiColour(false, marginBG);
+	SetMarginWidth(2, 15);
+	SetMarginMask(2, wxSTC_MASK_FOLDERS);
+	SetMarginSensitive(2, true);
+
+	SetProperty(wxT("fold"), wxT("1"));
+	SetProperty(wxT("fold.compact"), wxT("0"));
+
+	// Closed folder symbol (top level)
+	MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS);
+	// Open folder symbol (top level)
+	MarkerDefine(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS);
+	// Line contained in folder symbol
+	MarkerDefine(wxSTC_MARKNUM_FOLDERSUB, wxSTC_MARK_VLINE);
+	// Closed subfolder symbol
+	MarkerDefine(wxSTC_MARKNUM_FOLDEREND, wxSTC_MARK_BOXPLUSCONNECTED);
+	// Open subfolder symbol
+	MarkerDefine(wxSTC_MARKNUM_FOLDEROPENMID, wxSTC_MARK_BOXMINUSCONNECTED);
+	// Subfolder end symbol
+	MarkerDefine(wxSTC_MARKNUM_FOLDERMIDTAIL, wxSTC_MARK_TCORNERCURVE);
+	// Folder end symbol
+	MarkerDefine(wxSTC_MARKNUM_FOLDERTAIL, wxSTC_MARK_LCORNERCURVE);
+
+	// Set colors for all folding markers
+	for (int i = 25; i <= 31; i++) {
+		MarkerSetForeground(i, default_background);
+		MarkerSetBackground(i, markerLines);
+	}
+
+	// Set top level folder symbol fill color
+	MarkerSetForeground(wxSTC_MARKNUM_FOLDER, markerFill);
+	MarkerSetForeground(wxSTC_MARKNUM_FOLDEROPEN, markerFill);
+	MarkerSetBackground(wxSTC_MARKNUM_FOLDER, default_background);
+	MarkerSetBackground(wxSTC_MARKNUM_FOLDEROPEN, default_background);
 }
 
 void SubsTextEditCtrl::UpdateStyle() {
@@ -448,7 +503,7 @@ void SubsTextEditCtrl::UpdateStyle() {
 
 	line_text = GetTextRaw().data();
 
-	if (GetLexer() == wxSTC_LEX_LUA) return; // Todo: perform some special stuff, like brace matching and error highlights if someone actually uses --[=[these comments]=]
+	if (GetLexer() == wxSTC_LEX_LUA) return; // Todo: perform some special stuff, like brace matching
 
 	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
 	tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
@@ -528,9 +583,11 @@ void SubsTextEditCtrl::SetTextTo(std::string const& text) {
 void SubsTextEditCtrl::Paste() {
 	std::string data = GetClipboard();
 
-	boost::replace_all(data, "\r\n", "\\N");
-	boost::replace_all(data, "\n", "\\N");
-	boost::replace_all(data, "\r", "\\N");
+	if (GetLexer() != wxSTC_LEX_LUA) {
+		boost::replace_all(data, "\r\n", "\\N");
+		boost::replace_all(data, "\n", "\\N");
+		boost::replace_all(data, "\r", "\\N");
+	}
 
 	wxCharBuffer old = GetTextRaw();
 	data.insert(0, old.data(), GetSelectionStart());
