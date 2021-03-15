@@ -512,7 +512,7 @@ void SubsEditBox::SetSelectedRows(T AssDialogueBase::*field, wxString const& val
 }
 
 void SubsEditBox::CommitText(wxString const& desc) {
-	wxCharBuffer data = edit_ctrl->GetTextRaw();
+	auto data = edit_ctrl->GetTextRaw();
 
 	SetSelectedRows(&AssDialogue::Text, boost::flyweight<std::string>(data.data(), data.length()), desc, AssFile::COMMIT_DIAG_TEXT, true);
 }

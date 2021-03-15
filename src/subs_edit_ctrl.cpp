@@ -90,7 +90,7 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 {
 	// Set properties
 	SetWrapMode(wxSTC_WRAP_WORD);
-	SetMarginWidth(1, 0);
+	SetMarginWidth(1,0);
 #if wxCHECK_VERSION (3, 1, 0)
 	UsePopUp(wxSTC_POPUP_NEVER);
 #else
@@ -489,6 +489,12 @@ void SubsTextEditCtrl::UpdateStyle() {
 	cursor_pos = -1;
 	UpdateCallTip();
 
+#if wxCHECK_VERSION (3, 1, 0)
+	StartStyling(0);
+#else
+	StartStyling(0, 255);
+#endif
+
 	if (!OPT_GET("Subtitle/Highlight/Syntax")->GetBool()) {
 		SetStyling(line_text.size(), 0);
 		return;
@@ -508,12 +514,6 @@ void SubsTextEditCtrl::UpdateStyle() {
 	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
 	tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
 	agi::ass::SplitWords(line_text, tokenized_line);
-
-#if wxCHECK_VERSION (3, 1, 0)
-	StartStyling(0);
-#else
-	StartStyling(0, 255);
-#endif
 
 	SetIndicatorCurrent(0);
 	size_t pos = 0;
